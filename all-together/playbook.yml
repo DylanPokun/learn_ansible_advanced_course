@@ -1,0 +1,62 @@
+---
+- name: Deploy a web application
+  hosts: db_and_web_server1,db_and_web_server2
+  tasks:
+    - name: Ping
+      ping:
+
+    - name: Install all required dependencies
+      apt: name={{ item }} state=present
+      with_items:
+        - python
+        - python-setuptools
+        - python-dev
+        - build-essential
+        - python-pip
+        - python-mysqldb
+
+    - name: Install Python dependencies that weren't in course
+      pip:
+        name: pymysql
+        state: present
+
+    - name: Install and Configure Database
+      apt: 
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - mysql-server
+        - mysql-client
+
+    - name: Start MySQL Service
+      shell: service mysql start
+
+    - name: Create DB
+      mysql_db:
+        name: employee_db # required. name of the database to add or remove,name=all May only be provided if I(state) is C(dump) or C(import).,if name=all Works like --all-databases option for mysqldump (Added in 2.0)
+        state: present # not required. choices: present;absent;dump;import. The database state
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+    
+    - name: Create DB User
+      mysql_user:
+        name: db_user # required. name of the user (role) to add or remove
+        state: present # not required. choices: present;absent. Whether the user should exist.  When C(absent), removes the user.
+        password: Passw0rd # not required. set the user's password.
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        priv: "*.*:ALL"
+        host: "%"
+
+
+    - name: Install Python Flask dependency
+      pip:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - flask
+        - flask-mysql
+
+    - name: Copy source code
+      copy: src=app.py dest=/opt/app.py
+
+    - name: Start Web Server
+      shell: FLASK_APP=/opt/app.py nohup flask run --host=0.0.0.0 &
